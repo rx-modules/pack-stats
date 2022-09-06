@@ -14,7 +14,6 @@ bolt = "^0.17.7"
 millify = "^0.1.1"
 streamlit-agraph = "^0.0.41"
 Pygments = "^2.13.0"
-setuptools = "^65.3.0"
 
 [tool.poetry.dev-dependencies]
 watchdog = "^2.1.9"
