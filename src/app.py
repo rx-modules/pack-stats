@@ -7,8 +7,8 @@ from beet import DataPack
 from mecha.contrib.statistics import Statistics
 from millify import millify
 from pygments import highlight
-from pygments.formatters import HtmlFormatter, TerminalFormatter
-from pygments.lexers import MCFunctionLexer
+from pygments.formatters import HtmlFormatter
+from pygments.lexers.mcfunction import MCFunctionLexer
 
 import pack_graph
 from utils import get_data, get_stats
@@ -86,7 +86,7 @@ def main():
 
     st.title("Pack Stats")
     filter = get_filter()
-    if pack := st.file_uploader("Upload Pack (max 200mb)"):
+    if pack := st.file_uploader("Upload Pack (zip only)"):
         st.session_state["zipped_pack"] = ZipFile(pack)
 
         with st.spinner("Loading Pack and Analyzing Stats"):
