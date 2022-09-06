@@ -1,15 +1,14 @@
 import math
-from typing import Mapping
 import re
+from typing import Mapping
 
-from streamlit_agraph import agraph, Node, Edge, Config
 import streamlit as st
+from beet import DataPack, Function
+from streamlit_agraph import Config, Edge, Node, agraph
 
-from beet import Function
-
-from utils import get_data
-
-function_pattern = re.compile(r'(?:(?:schedule )?function(?![^{]*})) (#?[a-z0-9.-_+:]+)(?: \d+.)?')
+function_pattern = re.compile(
+    r"(?:(?:schedule )?function(?![^{]*})) (#?[a-z0-9.\-_+:]+)(?: \d+.)?"
+)
 
 
 def generate(functions: Mapping[str, Function], filter: re.Pattern | None):
@@ -29,16 +28,19 @@ def generate(functions: Mapping[str, Function], filter: re.Pattern | None):
         for line in function.lines:
             if line.startswith("#"):
                 continue
-            
+
             if match := function_pattern.match(line):
                 target_name = match.groups()[0]
-                
+
+                if target_name == "gm4":
+                    st.write(match.groups())
+
                 if target_name not in cached_ids:
                     yield Node(
                         id=target_name,
                     )
                     cached_ids.add(target_name)
-                
+
                 yield Edge(
                     source=source_name,
                     target=target_name,
@@ -50,14 +52,14 @@ def config():
         nodeHighlightBehavior=True,
         highlightColor="#F7A7A6",
         collapsible=True,
-        node={'labelProperty': 'label', 'renderLabel': True},
+        node={"labelProperty": "label", "renderLabel": True},
     )
 
 
 def plot(filter: re.Pattern | None):
     st.header("Pack Graph")
 
-    data = st.session_state["data"]
+    data: DataPack = st.session_state["data"]
 
     nodes, edges = [], []
 
@@ -68,9 +70,10 @@ def plot(filter: re.Pattern | None):
             case Edge():
                 edges.append(graph_obj)
             case _:
-                print("???", graph_obj)
-    
+                st.warning(f"Unknown Node Found: {graph_obj}")
+
     if nodes:
-        agraph(nodes=nodes, edges=edges, config=config())
+        return agraph(nodes=nodes, edges=edges, config=config())
+
     else:
         st.warning("No functions matching filter found, please adjust filter")

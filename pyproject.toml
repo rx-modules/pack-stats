@@ -13,10 +13,10 @@ mecha = "^0.54.9"
 bolt = "^0.17.7"
 millify = "^0.1.1"
 streamlit-agraph = "^0.0.41"
+Pygments = "^2.13.0"
 
 [tool.poetry.dev-dependencies]
 watchdog = "^2.1.9"
-poethepoet = "^0.16.2"
 black = "^22.8.0"
 flake8 = "^5.0.4"
 isort = "^5.10.1"
@@ -26,6 +26,9 @@ profile = "black"
 
 [tool.pyright]
 typeCheckingMode = "basic"
+
+[tool.poe.tasks]
+format = { shell = "isort src; black src"}
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
