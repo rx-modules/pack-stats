@@ -21,8 +21,11 @@ DISCORD_LINK = "https://discord.gg/nfwsJ3XeDT"
 from contextlib import contextmanager
 
 @contextmanager
-def dummy_spinner(*args, **kwargs):
-    yield
+def dummy_spinner(msg: str, *args, **kwargs):
+    with st.empty():
+        st.write(f"⏰ {msg}")
+        yield
+        st.write("")
 
 st.spinner = dummy_spinner
 
