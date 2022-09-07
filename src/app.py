@@ -104,7 +104,7 @@ def main():
 
         with code_col:
             data: DataPack = st.session_state["data"]
-            if highlighted_node:
+            if highlighted_node and highlighted_node in data.functions:
                 st.header(f"Function: `{highlighted_node}`")
                 content = "\n".join(data.functions[highlighted_node].lines)
                 st.markdown(
@@ -121,6 +121,8 @@ def main():
                     ),
                     unsafe_allow_html=True,
                 )
+            elif highlighted_node and highlighted_node not in data.functions:
+                st.header(f"`{highlighted_node}` not found")
             else:
                 st.header("No function selected")
 
