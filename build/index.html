@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Pack Stats </title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.6.0/build/stlite.css" />
+</head>
+
+<body>
+    <div id="root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.6.0/build/stlite.js"></script>
+    <script>
+        stlite.mount(
+                {
+                    requirements: ['beet', 'mecha', 'streamlit-agraph'], // Packages to install
+                    entrypoint: "app.py", // The target file of the `streamlit run` command
+                    files: {
+"pack_graph.py": `
+import math
+import re
+from typing import Mapping
+
+import streamlit as st
+from beet import DataPack, Function
+from streamlit_agraph import Config, Edge, Node, agraph
+
+function_pattern = re.compile(
+    r"(?:(?:schedule )?function(?![^{]*})) (#?[a-z0-9.\\-_+:]+)(?: \\d+.)?"
+)
+
+
+def generate(functions: Mapping[str, Function], filter: re.Pattern | None):
+    cached_ids = set()
+    for source_name, function in functions.items():
+        if filter and filter.search(source_name):
+            continue
+
+        if source_name not in cached_ids:
+            yield Node(
+                id=source_name,
+                title=source_name,
+                size=int(math.log(len(function.to_str(function.lines)))),
+            )
+            cached_ids.add(source_name)
+
+        for line in function.lines:
+            if line.startswith("#"):
+                continue
+
+            if match := function_pattern.match(line):
+                target_name = match.groups()[0]
+
+                if target_name == "gm4":
+                    st.write(match.groups())
+
+                if target_name not in cached_ids:
+                    yield Node(
+                        id=target_name,
+                    )
+                    cached_ids.add(target_name)
+
+                yield Edge(
+                    source=source_name,
+                    target=target_name,
+                )
+
+
+def config():
+    return Config(
+        nodeHighlightBehavior=True,
+        highlightColor="#F7A7A6",
+        collapsible=True,
+        node={"labelProperty": "label", "renderLabel": True},
+    )
+
+
+def plot(filter: re.Pattern | None):
+    st.header("Pack Graph")
+
+    data: DataPack = st.session_state["data"]
+
+    nodes, edges = [], []
+
+    for graph_obj in generate(data.functions, filter):
+        match graph_obj:
+            case Node():
+                nodes.append(graph_obj)
+            case Edge():
+                edges.append(graph_obj)
+            case _:
+                st.warning(f"Unknown Node Found: {graph_obj}")
+
+    if nodes:
+        return agraph(nodes=nodes, edges=edges, config=config())
+
+    else:
+        st.warning("No functions matching filter found, please adjust filter")
+
+`,
+"utils.py": `
+import re
+from io import BytesIO
+
+import streamlit as st
+from beet import Context, run_beet
+from beet.core.utils import get_import_string
+from mecha.contrib.statistics import Analyzer
+
+Pack = BytesIO
+
+
+def beet_analyzer(ctx: Context):
+    ctx.meta["stats"] = ctx.inject(Analyzer).stats
+
+
+def load_pack(ctx: Context):
+    ctx.data.load(st.session_state["zipped_pack"])
+
+
+@st.experimental_singleton(show_spinner=False)  # type: ignore
+def get_ctx(pack_name: str, filter: re.Pattern | None):
+    config = {
+        "require": [get_import_string(beet_analyzer)],
+        "pipeline": [get_import_string(load_pack), "mecha"],
+    }
+
+    with run_beet(config) as ctx:
+        return ctx
+
+
+def get_stats(pack_name: str, filter: re.Pattern | None):
+    return get_ctx(pack_name, filter).meta["stats"]
+
+
+def get_data(pack_name: str, filter: re.Pattern | None):
+    ctx = get_ctx(pack_name, filter)
+
+    if filter:
+        for name in list(ctx.data.functions.keys()):
+            if filter.search(name):
+                del ctx.data.functions[name]
+
+    return ctx.data
+
+`,
+"app.py": `
+import re
+from typing import Any
+from zipfile import ZipFile
+
+import streamlit as st
+from beet import DataPack
+from mecha.contrib.statistics import Statistics
+from millify import millify
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers.mcfunction import MCFunctionLexer
+
+import pack_graph
+from utils import get_data, get_stats
+
+REPO_LINK = "https://github.com/rx-modules/pack-stats"
+BUG_REPORT_URL = "https://github.com/rx-modules/pack-stats/issues/new?assignees=&labels=bug&template=bug-report.md&title=%5BBug%5D"
+DISCORD_LINK = "https://discord.gg/nfwsJ3XeDT"
+
+
+from contextlib import contextmanager
+
+@contextmanager
+def dummy_spinner(*args, **kwargs):
+    yield
+
+st.spinner = dummy_spinner
+
+def page_config():
+    st.set_page_config(
+        page_title="Pack Stats",
+        page_icon=":package:",
+        layout="wide",
+        menu_items={
+            "Report a bug": BUG_REPORT_URL,
+            "Get help": DISCORD_LINK,
+            # "About": (
+            #     "# Pack Stats\\n"
+            #     "A cool way to visualize your Minecraft Data Pack Stats\\n"
+            #     "\\n"
+            #     f"[Github]({REPO_LINK})"
+            # ),
+        },
+    )
+
+
+def row(*args):
+    assert len(args) > 0
+
+    columns = st.columns(len(args))
+    for column, (title, value) in zip(columns, args):
+        value = millify(value) if type(value) in (int, float) else value
+        with column:
+            st.metric(title, value)
+
+
+def display_stats():
+    stats: Statistics = st.session_state["stats"]
+
+    st.header("Pack Overview")
+    row(
+        ("Functions", stats.function_count),
+        (
+            "Commands",
+            sum(sum(value.values()) for value in stats.command_count.values()),
+        ),
+        ("Selectors", sum(stats.selector_count.values())),
+        ("Objectives", len(stats.scoreboard_objectives)),
+        (
+            "Fake Players",
+            sum(
+                len(obj.values())
+                for obj in stats.scoreboard_fake_player_references.values()
+            ),
+        ),
+    )
+
+
+def get_filter():
+    output = st.text_input("Filter Datapack (regex)")
+
+    if not output:
+        return None
+
+    try:
+        return re.compile(output)
+
+    except re.error as err:
+        st.warning(f"Filter is not valid regex: \`{err}\`")
+        return None
+
+
+def main():
+    page_config()
+
+    st.title("Pack Stats")
+    filter = get_filter()
+    if pack := st.file_uploader("Upload Pack (zip only)"):
+        st.session_state["zipped_pack"] = ZipFile(pack)
+
+        with st.spinner("Loading Pack and Analyzing Stats"):
+            st.session_state["data"] = get_data(pack.name, filter)
+            st.session_state["stats"] = get_stats(pack.name, filter)
+
+        display_stats()
+
+        graph_col, code_col = st.columns(2)
+        with (
+            st.spinner("Loading Pack Graph (may take a while)"),
+            graph_col,
+        ):  # TODO: timeout
+            highlighted_node = pack_graph.plot(filter)
+
+        with code_col:
+            data: DataPack = st.session_state["data"]
+            if highlighted_node:
+                st.header(f"Function: \`{highlighted_node}\`")
+                content = "\\n".join(data.functions[highlighted_node].lines)
+                st.markdown(
+                    highlight(
+                        content,
+                        MCFunctionLexer(),
+                        HtmlFormatter(
+                            style="material",
+                            noclasses=True,
+                            nobackground=True,
+                            lineseparator="<br>",
+                            cssstyles="font-family: 'Source Code Pro';",
+                        ),
+                    ),
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.header("No function selected")
+
+
+main()
+
+`,
+"millify.py": `
+# From: https://github.com/azaitsev/millify/blob/master/millify/__init__.py
+
+import math
+import re
+from decimal import Decimal
+
+__author__ = "Alexander Zaitsev (azaitsev@gmail.com)"
+__copyright__ = "Copyright 2018, azaitsev@gmail.com"
+__license__ = "MIT"
+__version__ = "0.1.1"
+
+
+def remove_exponent(d):
+    """Remove exponent."""
+    return d.quantize(Decimal(1)) if d == d.to_integral() else d.normalize()
+
+
+def millify(n, precision=0, drop_nulls=True, prefixes=[]):
+    """Humanize number."""
+    millnames = ['', 'k', 'M', 'B', 'T', 'P', 'E', 'Z', 'Y']
+    if prefixes:
+        millnames = ['']
+        millnames.extend(prefixes)
+    n = float(n)
+    millidx = max(0, min(len(millnames) - 1,
+                         int(math.floor(0 if n == 0 else math.log10(abs(n)) / 3))))
+    result = '{:.{precision}f}'.format(n / 10**(3 * millidx), precision=precision)
+    if drop_nulls:
+        result = remove_exponent(Decimal(result))
+    return '{0}{dx}'.format(result, dx=millnames[millidx])
+
+
+def prettify(amount, separator=','):
+    """Separate with predefined separator."""
+    orig = str(amount)
+    new = re.sub(r"^(-?\\d+)(\\d{3})", r"\\g<1>{0}\\g<2>".format(separator), str(amount))
+    if orig == new:
+        return new
+    else:
+        return prettify(new)
+
+`
+                    },
+                },
+                document.getElementById("root")
+            );
+    </script>
+</body>
+
+</html>

@@ -17,6 +17,15 @@ REPO_LINK = "https://github.com/rx-modules/pack-stats"
 BUG_REPORT_URL = "https://github.com/rx-modules/pack-stats/issues/new?assignees=&labels=bug&template=bug-report.md&title=%5BBug%5D"
 DISCORD_LINK = "https://discord.gg/nfwsJ3XeDT"
 
+
+from contextlib import contextmanager
+
+@contextmanager
+def dummy_spinner(*args, **kwargs):
+    yield
+
+st.spinner = dummy_spinner
+
 def page_config():
     st.set_page_config(
         page_title="Pack Stats",
@@ -25,13 +34,13 @@ def page_config():
         menu_items={
             "Report a bug": BUG_REPORT_URL,
             "Get help": DISCORD_LINK,
-            "About": (
-                "# Pack Stats\n"
-                "A cool way to visualize your Minecraft Data Pack Stats\n"
-                "\n"
-                f"[Github]({REPO_LINK})"
-            )
-        }
+            # "About": (
+            #     "# Pack Stats\n"
+            #     "A cool way to visualize your Minecraft Data Pack Stats\n"
+            #     "\n"
+            #     f"[Github]({REPO_LINK})"
+            # ),
+        },
     )
 
 

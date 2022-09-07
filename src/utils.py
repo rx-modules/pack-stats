@@ -1,7 +1,5 @@
 import re
 from io import BytesIO
-from typing import Callable
-from zipfile import ZipFile
 
 import streamlit as st
 from beet import Context, run_beet

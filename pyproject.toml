@@ -8,18 +8,20 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.10"
 streamlit = "^1.12.2"
-beet = "^0.71.0"
-mecha = "^0.54.9"
-bolt = "^0.17.7"
-millify = "^0.1.1"
-streamlit-agraph = "^0.0.41"
 Pygments = "^2.13.0"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.stlite.dependencies]
+beet = "^0.71.0"
+mecha = "^0.54.9"
+streamlit-agraph = "^0.0.41"
+
+[tool.poetry.group.dev.dependencies]
 watchdog = "^2.1.9"
 black = "^22.8.0"
 flake8 = "^5.0.4"
 isort = "^5.10.1"
+Jinja2 = "^3.1.2"
+toml = "^0.10.2"
 
 [tool.isort]
 profile = "black"
@@ -29,6 +31,7 @@ typeCheckingMode = "basic"
 
 [tool.poe.tasks]
 format = { shell = "isort src; black src"}
+build = { script = "build:main" }
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
