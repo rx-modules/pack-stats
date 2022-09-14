@@ -7,7 +7,7 @@ from beet import DataPack, Function
 from streamlit_agraph import Config, Edge, Node, agraph
 
 function_pattern = re.compile(
-    r"(?:(?:schedule )?function(?![^{]*})) (#?[a-z0-9.\\-_+:]+)(?: \d+.)?"
+    r"(?:(?:schedule )?function(?![^{]*})) (#?[a-z0-9./\-_+:]+)(?: \d+.)?"
 )
 
 
